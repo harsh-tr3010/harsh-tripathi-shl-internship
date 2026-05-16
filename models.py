@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 
 class Message(BaseModel):
     role: str
@@ -8,11 +8,7 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[Message]
 
-class Recommendation(BaseModel):
-    name: str
-    url: str
-
 class ChatResponse(BaseModel):
     reply: str
-    recommendations: List[Recommendation]
+    recommendations: Optional[List[Dict[str, Any]]] = None
     end_of_conversation: bool
