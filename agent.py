@@ -5,7 +5,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from models import ChatRequest, ChatResponse
 
 load_dotenv()
