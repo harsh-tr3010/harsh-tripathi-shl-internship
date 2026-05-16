@@ -1,11 +1,9 @@
 fastapi==0.110.0
 uvicorn==0.28.0
-pydantic>=2.7.4,<3.0.0
 requests==2.31.0
 python-dotenv==1.0.1
-openai==1.14.1
-langchain==0.3.14
-langchain-core>=0.3.29,<0.4.0
-langchain-openai>=0.3.0,<0.4.0
-langchain-huggingface==0.1.2
+openai>=1.14.1
 chromadb==0.4.24
+langchain>=0.3.0
+langchain-openai>=0.3.0
+langchain-huggingface>=0.1.0
