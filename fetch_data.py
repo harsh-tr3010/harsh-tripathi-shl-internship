@@ -1,72 +1,68 @@
-import requests
-import json
 import os
+import json
+import requests
 from dotenv import load_dotenv
-from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 load_dotenv()
 
+HF_TOKEN = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 CATALOG_URL = "https://tcp-us-prod-rnd.shl.com/voiceRater/shl-ai-hiring/shl_product_catalog.json"
-DATA_FILE = "data/catalog.json"
 
-def fetch_and_clean_catalog():
-    response = requests.get(CATALOG_URL)
-    if response.status_code != 200:
-        return
+embeddings_engine = HuggingFaceEndpointEmbeddings(
+    repo_id="sentence-transformers/all-MiniLM-L6-v2",
+    huggingfacehub_api_token=HF_TOKEN
+)
+
+def fetch_and_vectorize_catalog():
+    os.makedirs("data", exist_ok=True)
+    catalog_path = "data/catalog.json"
 
     try:
-        raw_data = json.loads(response.text, strict=False)
-    except json.JSONDecodeError:
-        clean_text = response.text.replace('\n', '\\n').replace('\t', '\\t')
-        raw_data = json.loads(clean_text, strict=False)
-
-    clean_catalog = []
-    for item in raw_data:
-        if item.get("solution_type", "").lower() != "pre-packaged job solution":
-            clean_catalog.append({
-                "name": item.get("name", "Unknown"),
-                "url": item.get("url", ""),
-                "test_type": item.get("test_type", "Unknown"),
-                "description": item.get("description", ""),
-                "skills_measured": item.get("skills", [])
-            })
-
-    os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(clean_catalog, f, indent=4)
-
-def build_vector_db():
-    if not os.path.exists(DATA_FILE):
+        response = requests.get(CATALOG_URL, timeout=15, verify=False)
+        response.raise_for_status()
+        raw_data = response.json()
+    except Exception as e:
+        print(f"Error downloading source catalog: {e}")
         return
 
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        catalog = json.load(f)
+    raw_items = raw_data.get("items", [])
+    cleaned_items = []
 
-    documents = []
-    metadatas = []
-    for item in catalog:
-        text_content = f"Name: {item['name']}\nDescription: {item['description']}\nSkills: {' '.join(item['skills_measured'])}"
-        documents.append(text_content)
-        metadatas.append({
-            "name": item["name"],
-            "url": item["url"],
-            "test_type": item["test_type"]
+    print(f"Processing and embedding {len(raw_items)} catalog items...")
+
+    for item in raw_items:
+        name = item.get("name", "")
+        description = item.get("description", "")
+        url = item.get("url", "")
+        
+        if "Pre-packaged" in name or "Solution" in name:
+            continue
+
+        if not name or not description:
+            continue
+
+        text_to_embed = f"Name: {name} | Description: {description}"
+        
+        try:
+            embedding = embeddings_engine.embed_query(text_to_embed)
+        except Exception as e:
+            print(f"Error generating embedding for {name}: {e}")
+            embedding = []
+
+        cleaned_items.append({
+            "name": name,
+            "description": description,
+            "url": url,
+            "embedding": embedding
         })
 
-    embeddings = HuggingFaceEndpointEmbeddings(
-        repo_id="sentence-transformers/all-MiniLM-L6-v2",
-        task="feature-extraction",
-        huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN")
-    )
+    output_payload = {"items": cleaned_items}
 
-    Chroma.from_texts(
-        texts=documents,
-        embedding=embeddings,
-        metadatas=metadatas,
-        persist_directory="data/chroma_db"
-    )
+    with open(catalog_path, "w", encoding="utf-8") as f:
+        json.dump(output_payload, f, indent=2, ensure_ascii=False)
+
+    print(f"Successfully compiled and saved {len(cleaned_items)} vector-embedded items to {catalog_path}")
 
 if __name__ == "__main__":
-    fetch_and_clean_catalog()
-    build_vector_db()
+    fetch_and_vectorize_catalog()
