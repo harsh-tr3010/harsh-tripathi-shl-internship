@@ -3,7 +3,7 @@ import json
 import os
 from dotenv import load_dotenv
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceHubEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 load_dotenv()
 
@@ -54,7 +54,7 @@ def build_vector_db():
             "test_type": item["test_type"]
         })
 
-    embeddings = HuggingFaceHubEmbeddings(
+    embeddings = HuggingFaceEndpointEmbeddings(
         repo_id="sentence-transformers/all-MiniLM-L6-v2",
         task="feature-extraction",
         huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN")
