@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import requests
 from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
@@ -14,6 +15,11 @@ embeddings_engine = HuggingFaceEndpointEmbeddings(
     huggingfacehub_api_token=HF_TOKEN
 )
 
+def clean_json_string(raw_text: str) -> str:
+   
+    cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw_text)
+    return cleaned
+
 def fetch_and_vectorize_catalog():
     os.makedirs("data", exist_ok=True)
     catalog_path = "data/catalog.json"
@@ -21,9 +27,17 @@ def fetch_and_vectorize_catalog():
     try:
         response = requests.get(CATALOG_URL, timeout=15, verify=False)
         response.raise_for_status()
-        raw_data = response.json()
+        raw_text = response.text
     except Exception as e:
         print(f"Error downloading source catalog: {e}")
+        return
+
+    try:
+       
+        sanitized_text = clean_json_string(raw_text)
+        raw_data = json.loads(sanitized_text)
+    except Exception as e:
+        print(f"Error parsing sanitized JSON payload: {e}")
         return
 
     raw_items = raw_data.get("items", [])

@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal
+from typing import List
 
 class Message(BaseModel):
-    role: Literal["user", "assistant"]
+    role: str
     content: str
 
 class ChatRequest(BaseModel):
@@ -11,9 +11,8 @@ class ChatRequest(BaseModel):
 class Recommendation(BaseModel):
     name: str
     url: str
-    test_type: str
 
 class ChatResponse(BaseModel):
     reply: str
-    recommendations: List[Recommendation] = Field(default_factory=list)
+    recommendations: List[Recommendation]
     end_of_conversation: bool
