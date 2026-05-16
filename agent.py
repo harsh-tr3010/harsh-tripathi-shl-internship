@@ -3,7 +3,8 @@ import os
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_community.embeddings import HuggingFaceHubEmbeddings
 from langchain_community.vectorstores import Chroma
 from models import ChatRequest, ChatResponse
 
@@ -16,7 +17,12 @@ llm = ChatOpenAI(
     temperature=0.0
 )
 
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+embeddings = HuggingFaceHubEmbeddings(
+    repo_id="sentence-transformers/all-MiniLM-L6-v2",
+    task="feature-extraction",
+    huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN")
+)
+
 vector_store = Chroma(persist_directory="data/chroma_db", embedding_function=embeddings)
 
 def retrieve_relevant_items(messages: list, top_k: int = 15) -> list:
