@@ -1,30 +1,28 @@
 import requests
 import json
 import os
+from dotenv import load_dotenv
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+load_dotenv()
 
 CATALOG_URL = "https://tcp-us-prod-rnd.shl.com/voiceRater/shl-ai-hiring/shl_product_catalog.json"
 DATA_FILE = "data/catalog.json"
 
 def fetch_and_clean_catalog():
-    print(f"Fetching raw catalog from {CATALOG_URL}...")
     response = requests.get(CATALOG_URL)
-    
     if response.status_code != 200:
-        print(f"Failed to fetch. Status code: {response.status_code}")
         return
 
-    
     try:
         raw_data = json.loads(response.text, strict=False)
     except json.JSONDecodeError:
-        # Fallback just in case the data is extremely messy: manually clean the text string first
         clean_text = response.text.replace('\n', '\\n').replace('\t', '\\t')
         raw_data = json.loads(clean_text, strict=False)
 
     clean_catalog = []
-
     for item in raw_data:
-        # Filter strictly for Individual Test Solutions as mandated by the assignment
         if item.get("solution_type", "").lower() != "pre-packaged job solution":
             clean_catalog.append({
                 "name": item.get("name", "Unknown"),
@@ -37,8 +35,32 @@ def fetch_and_clean_catalog():
     os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(clean_catalog, f, indent=4)
-        
-    print(f"Successfully saved {len(clean_catalog)} Individual Test Solutions to {DATA_FILE}")
+
+def build_vector_db():
+    if not os.path.exists(DATA_FILE):
+        return
+
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
+        catalog = json.load(f)
+
+    documents = []
+    metadatas = []
+    for item in catalog:
+        text_content = f"Name: {item['name']}\nDescription: {item['description']}\nSkills: {' '.join(item['skills_measured'])}"
+        documents.append(text_content)
+        metadatas.append({
+            "name": item["name"],
+            "url": item["url"],
+            "test_type": item["test_type"]
+        })
+
+    Chroma.from_texts(
+        texts=documents,
+        embedding=OpenAIEmbeddings(model="text-embedding-3-small"),
+        metadatas=metadatas,
+        persist_directory="data/chroma_db"
+    )
 
 if __name__ == "__main__":
     fetch_and_clean_catalog()
+    build_vector_db()
